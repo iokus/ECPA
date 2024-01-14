@@ -1,7 +1,7 @@
 # run to parse all eve data files within directory
 
 import re
-from os import listdir, path
+from os import listdir, path, mkdir
 from argparse import ArgumentParser
 
 
@@ -22,7 +22,7 @@ def getSegment(segments: list, timestamp: str) -> int:
     for i in range(len(segments)):
         if timeInt >= timestampToInt(segments[i][0]):
             if timeInt <= timestampToInt(segments[i][1]):
-                res = i + 1
+                res = i
                 break
     return res
 
@@ -142,10 +142,14 @@ parser.add_argument(
 args = parser.parse_args()
 tmp = str(args.time).split(",")
 segments = []
+seglist = []
 for seg in tmp:
     segments.append(seg.split("-"))
+    seglist.append(seg)
+    if not path.isdir(args.dir + "/" + seg):
+        mkdir(args.dir + "/" + seg)
 
-# print(segments)
+print(seglist)
 # ---------------------------------------------------main logic ----------------------------------------#
 for fi in listdir(args.dir):
     if ".txt" in fi:
@@ -158,18 +162,28 @@ for fi in listdir(args.dir):
         if not tmp:
             exit(0)
 
-        if not path.isfile(f"{fi.split('.')[0].split('-')[iteration]}.csv"):
-            out = open(f"{fi.split('.')[0].split('-')[iteration]}.csv", "w")
+        lastSegment = getSegment(segments, tmp.time)
+        if not path.isfile(
+            f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv"
+        ):
+            out = open(
+                f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv",
+                "w",
+            )
         else:
             for i in range(2, 5):
-                if not path.isfile(f"{fi.split('.')[0].split('-')[iteration]}-{i}.csv"):
-                    out = open(f"{fi.split('.')[0].split('-')[iteration]}-{i}.csv", "w")
+                if not path.isfile(
+                    f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
+                ):
+                    out = open(
+                        f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
+                        "w",
+                    )
                     break
 
         out.write(str(tmp) + "\n")
         tmp = next(data, None)
 
-        lastSegment = getSegment(segments, tmp.time)
         # writing loop
 
         while tmp is not None:
@@ -181,15 +195,20 @@ for fi in listdir(args.dir):
                     iteration += 1
                     out.close()
 
-                    if not path.isfile(f"{fi.split('.')[0].split('-')[iteration]}.csv"):
-                        out = open(f"{fi.split('.')[0].split('-')[iteration]}.csv", "w")
+                    if not path.isfile(
+                        f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv"
+                    ):
+                        out = open(
+                            f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv",
+                            "w",
+                        )
                     else:
                         for i in range(2, 5):
                             if not path.isfile(
-                                f"{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
+                                f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
                             ):
                                 out = open(
-                                    f"{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
+                                    f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
                                     "w",
                                 )
                                 break
