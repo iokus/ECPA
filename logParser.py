@@ -44,6 +44,7 @@ def readFile(fi: str, segments: list) -> list:
                 )
             ):
                 continue
+
             if ("combat" in line) and any(
                 _ in line
                 for _ in (
@@ -117,6 +118,80 @@ def readFile(fi: str, segments: list) -> list:
                         role,
                     )
                 )
+
+            if ("combat" in line) and (
+                "energy neutralized" in line
+            ):  # fix target, <color=0xfff0f000> unique
+                if "<color=0xffe57f7f>" in line:
+                    role = "got-neuted"
+                    target = re.search("\\(([^\\)]+)\\)", line.split("combat")[1])
+                    if target == None:
+                        target = "enemy"
+                    else:
+                        target = target.group().strip("()")
+                else:
+                    role = "neuted-enemy"
+                    try:
+                        if re.search("\\([\w ]+\\)", line.split("combat")[1]) == None:
+                            target = "enemy"
+                        else:
+                            target = (
+                                re.search(
+                                    "\\([\w ]+\\)", line.split("combat")[1]
+                                )  # will fuck things up if someone has a name in ()
+                                .group()
+                                .strip("()")
+                            )
+                    except:
+                        print(line)
+                        exit(1)
+                effect = re.search("[0-9]+ GJ", line).group().split(" ")[0]
+                entries.append(
+                    Entry(
+                        line.split(" ")[2],
+                        effect,
+                        target,
+                        role,
+                    )
+                )
+
+            if ("combat" in line) and ("energy drained to" in line):
+                role = "got-drained"
+                target = (
+                    re.search(
+                        "\\(([^\\)]+)\\)", line.split("combat")[1]
+                    )  # will fuck things up if someone has a name in ()
+                    .group()
+                    .strip("()")
+                )
+                effect = re.search("[0-9]+ GJ", line).group().split(" ")[0]
+                entries.append(
+                    Entry(
+                        line.split(" ")[2],
+                        effect,
+                        target,
+                        role,
+                    )
+                )
+
+            if ("combat" in line) and ("energy drained from" in line):
+                role = "drained-enemy"
+
+                target = re.search("\\(([^\\)]+)\\)", line.split("combat")[1])
+                if target != None:
+                    target = target.group().strip("()")
+                else:
+                    target = "enemy"
+                effect = re.search("[0-9]+ GJ", line).group().split(" ")[0]
+                entries.append(
+                    Entry(
+                        line.split(" ")[2],
+                        effect,
+                        target,
+                        role,
+                    )
+                )
+
     return entries
 
 
