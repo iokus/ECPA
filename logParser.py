@@ -3,6 +3,7 @@
 import re
 from os import listdir, path, mkdir
 from argparse import ArgumentParser
+from evelyzer import analyze
 
 
 class Entry:
@@ -33,23 +34,26 @@ def readFile(fi: str, segments: list) -> list:
         for line in log:
             if line[0] != "[":
                 continue
-            if getSegment(segments, line.split(" ")[2]) == -1:
-                continue
-            if (
-                ("combat" in line)
-                and any(
-                    _ in line
-                    for _ in (
-                        "Hits",
-                        "Smashes",
-                        "Grazes",
-                        "Penetrates",
-                        "Glances",
-                        "Wrecks",
-                    )
+            if (getSegment(segments, line.split(" ")[2]) == -1) or any(
+                _ in line
+                for _ in (
+                    "Vizan's Modified Mega",
+                    "Warp scramble attempt",
+                    "Large Vorton Projector II",
+                    "Chelm's Modified",
                 )
-                and not ("Vizan's Modified Mega") in line
-                and not ("Warp scramble attempt") in line
+            ):
+                continue
+            if ("combat" in line) and any(
+                _ in line
+                for _ in (
+                    "Hits",
+                    "Smashes",
+                    "Grazes",
+                    "Penetrates",
+                    "Glances",
+                    "Wrecks",
+                )
             ):
                 try:
                     effect = re.search(">[0-9]+<", line).group().strip("><")
@@ -149,7 +153,6 @@ for seg in tmp:
     if not path.isdir(args.dir + "/" + seg):
         mkdir(args.dir + "/" + seg)
 
-print(seglist)
 # ---------------------------------------------------main logic ----------------------------------------#
 for fi in listdir(args.dir):
     if ".txt" in fi:
@@ -180,6 +183,7 @@ for fi in listdir(args.dir):
                         "w",
                     )
                     break
+        out.write("type,time,amount,target\n")
 
         out.write(str(tmp) + "\n")
         tmp = next(data, None)
@@ -212,8 +216,11 @@ for fi in listdir(args.dir):
                                     "w",
                                 )
                                 break
-
+                out.write("type,time,amount,target\n")
             out.write(str(tmp) + "\n")
             tmp = next(data, None)
 
         out.close()
+
+for s in seglist:
+    analyze(s)
