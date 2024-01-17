@@ -17,15 +17,36 @@ class Entry:
         return f"{self.role},{self.time},{self.effect},{self.target}"
 
 
-def getSegment(segments: list, timestamp: str) -> int:
-    timeInt = timestampToInt(timestamp)
-    res = -1
+class Segment:
+    def __init__(self, sign: str, beginInt: int, endInt: int) -> None:
+        self.sign = sign
+        self.begin = beginInt
+        self.end = endInt
+
+    def __str__(self) -> str:
+        return self.sign
+
+    def contains(self, timestamp: str) -> bool:
+        if (timestampToInt(timestamp) >= self.begin) and (
+            timestampToInt(timestamp) <= self.end
+        ):
+            return True
+        return False
+
+
+def getSegmentPos(segments: list, timestamp: str) -> int:
     for i in range(len(segments)):
-        if timeInt >= timestampToInt(segments[i][0]):
-            if timeInt <= timestampToInt(segments[i][1]):
-                res = i
-                break
-    return res
+        if segments[i].contains(timestamp):
+            return i
+    return -1
+
+
+def getSegment(segments: list, sign: str) -> Segment:
+    for s in segments:
+        # print(f"looking for {sign} in {s.sign}")
+        if s.contains(sign):
+            return s
+    return None
 
 
 def readFile(fi: str, segments: list) -> list:
@@ -34,7 +55,7 @@ def readFile(fi: str, segments: list) -> list:
         for line in log:
             if line[0] != "[":
                 continue
-            if (getSegment(segments, line.split(" ")[2]) == -1) or any(
+            if (getSegmentPos(segments, line.split(" ")[2]) == -1) or any(
                 _ in line
                 for _ in (
                     "Vizan's Modified Mega",
@@ -192,6 +213,16 @@ def readFile(fi: str, segments: list) -> list:
                     )
                 )
 
+            if "(None) Undocking" in line:
+                entries.append(
+                    Entry(
+                        line.split(" ")[2],
+                        "none",
+                        "none",
+                        "undock",
+                    )
+                )
+
     return entries
 
 
@@ -221,12 +252,15 @@ parser.add_argument(
 args = parser.parse_args()
 tmp = str(args.time).split(",")
 segments = []
-seglist = []
 for seg in tmp:
-    segments.append(seg.split("-"))
-    seglist.append(seg)
+    segments.append(
+        Segment(
+            seg, timestampToInt(seg.split("-")[0]), timestampToInt(seg.split("-")[1])
+        )
+    )
     if not path.isdir(args.dir + "/" + seg):
         mkdir(args.dir + "/" + seg)
+        mkdir(f"{args.dir}/{seg}/match-1")
 
 # ---------------------------------------------------main logic ----------------------------------------#
 for fi in listdir(args.dir):
@@ -234,68 +268,88 @@ for fi in listdir(args.dir):
         print("parsing: " + fi)
         # write to file setup
         entries = readFile(fi, segments)
-        iteration = 0
-        data = iter(entries)
-        tmp = next(data, None)
-        if not tmp:
-            exit(0)
+        fileSegments = dict()
+        for s in segments:
+            fileSegments.update({s.sign: []})
 
-        lastSegment = getSegment(segments, tmp.time)
-        if not path.isfile(
-            f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv"
-        ):
-            out = open(
-                f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv",
-                "w",
-            )
-        else:
-            for i in range(2, 5):
-                if not path.isfile(
-                    f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
-                ):
-                    out = open(
-                        f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
-                        "w",
-                    )
+        # add entries to corresponding segments
+        for e in entries:
+            fileSegments[getSegment(segments, e.time).sign].append(e)
+
+        # clean undocks only
+        keysToDelete = []
+        for s in fileSegments:
+            used = False
+            for e in fileSegments[s]:
+                if e.role != "undock":
+                    used = True
                     break
-        out.write("type,time,amount,target\n")
+            if not used:
+                keysToDelete.append(s)
+        for k in keysToDelete:
+            del fileSegments[k]
 
-        out.write(str(tmp) + "\n")
-        tmp = next(data, None)
+        # write active segments
 
-        # writing loop
+        iteration = 0
+        for k in fileSegments:
+            lastUndock = timestampToInt(fileSegments[k][0].time)
+            match = 1
 
-        while tmp is not None:
-            # print(f"segment is {lastSegment}")
-            if lastSegment != getSegment(segments, tmp.time):
-                lastSegment = getSegment(segments, tmp.time)
-
-                if iteration < len(fi.split(".")[0].split("-")) - 1:
-                    iteration += 1
-                    out.close()
-
+            if not path.isfile(
+                f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv"
+            ):
+                out = open(
+                    f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv",
+                    "w",
+                )
+            else:
+                for i in range(2, 5):
                     if not path.isfile(
-                        f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv"
+                        f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
                     ):
                         out = open(
-                            f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}.csv",
+                            f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
+                            "w",
+                        )
+                        break
+
+            out.write("type,time,amount,target\n")
+
+            for e in fileSegments[k]:
+                if e.role == "undock" and (timestampToInt(e.time) - lastUndock) > 120:
+                    lastUndock = timestampToInt(e.time)
+                    match += 1
+
+                    if not path.isdir(f"{args.dir}/{k}/match-{match}"):
+                        mkdir(f"{args.dir}/{k}/match-{match}")
+
+                    if not path.isfile(
+                        f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv"
+                    ):
+                        out = open(
+                            f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv",
                             "w",
                         )
                     else:
                         for i in range(2, 5):
                             if not path.isfile(
-                                f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
+                                f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
                             ):
                                 out = open(
-                                    f"{args.dir}/{seglist[lastSegment]}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
+                                    f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
                                     "w",
                                 )
+
                                 break
-                out.write("type,time,amount,target\n")
-            out.write(str(tmp) + "\n")
-            tmp = next(data, None)
 
-        out.close()
+                    out.write("type,time,amount,target\n")
 
-for s in seglist:
-    analyze(s)
+                else:
+                    out.write(str(e) + "\n")
+
+            iteration += 1
+
+
+for s in segments:
+    analyze(s.sign)
