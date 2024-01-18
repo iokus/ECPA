@@ -1,5 +1,5 @@
 import csv
-from os import listdir
+from os import listdir, path
 
 
 def analyze(path: str):
@@ -69,3 +69,38 @@ def analyze(path: str):
             summary.write(
                 f"comp total,{sumDmgD},{sumDmgR},{sumLR},{sumLD},{sumND},{sumNR},{sumDD},{sumDR}\n"
             )
+
+
+def summarize(p, basefile):
+    for f in listdir(p):
+        if path.isdir(f"{p}/{f}"):
+            summarize(f"{p}/{f}", basefile)
+        if path.isfile(f"{p}/{f}"):
+            if f == "summary.csv":
+                with open(f"{p}/{f}", "r") as infile:
+                    basefile.write(f"-------{p}/{f}---------\n")
+                    for line in infile:
+                        basefile.write(line)
+                    basefile.write("\n\n")
+
+
+def dump(p: str, basefile) -> None:
+    for f in listdir(p):
+        if path.isdir(f"{p}/{f}"):
+            dump(f"{p}/{f}", basefile)
+        if path.isfile(f"{p}/{f}") and len(f.split(".")) > 1:
+            if f != "summary.csv" and f.split(".")[1] == "csv" and f != "dump.csv":
+                with open(f"{p}/{f}", "r") as infile:
+                    for line in infile:
+                        if line != "type,time,amount,target\n":
+                            tmp = line.strip("\n")
+                            # print(f"line = {tmp}\np={p}\nf={f.split('.')[0]}")
+                            loc = p.split("/")
+                            basefile.write(
+                                f"{loc[len(loc)-2]},{loc[len(loc)-1].split('-')[1]},{f.split('.')[0]},{tmp}\n"
+                            )
+
+
+with open("dump.csv", "w") as f:
+    f.write("set,match,ship,type,time,amount,target\n")
+    dump(".", f)

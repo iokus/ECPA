@@ -3,7 +3,7 @@
 import re
 from os import listdir, path, mkdir
 from argparse import ArgumentParser
-from evelyzer import analyze
+from evelyzer import analyze, summarize, dump
 
 
 class Entry:
@@ -62,6 +62,7 @@ def readFile(fi: str, segments: list) -> list:
                     "Warp scramble attempt",
                     "Large Vorton Projector II",
                     "Chelm's Modified",
+                    "Tournament Bubble",
                 )
             ):
                 continue
@@ -178,13 +179,13 @@ def readFile(fi: str, segments: list) -> list:
 
             if ("combat" in line) and ("energy drained to" in line):
                 role = "got-drained"
-                target = (
-                    re.search(
-                        "\\(([^\\)]+)\\)", line.split("combat")[1]
-                    )  # will fuck things up if someone has a name in ()
-                    .group()
-                    .strip("()")
-                )
+                target = re.search(
+                    "\\(([^\\)]+)\\)", line.split("combat")[1]
+                )  # will fuck things up if someone has a name in ()
+                if target == None:
+                    target = "enemy"
+                else:
+                    target = target.group().strip("()")
                 effect = re.search("[0-9]+ GJ", line).group().split(" ")[0]
                 entries.append(
                     Entry(
@@ -353,3 +354,11 @@ for fi in listdir(args.dir):
 
 for s in segments:
     analyze(s.sign)
+
+base = open(f"{args.dir}/all.txt", "w")
+summarize(args.dir, base)
+base.close()
+
+base = open(f"{args.dir}/dump.txt", "w")
+dump(args.dir, base)
+base.close()
