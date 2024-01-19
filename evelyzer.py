@@ -92,7 +92,7 @@ def dump(p: str, basefile) -> None:
             if f != "summary.csv" and f.split(".")[1] == "csv" and f != "dump.csv":
                 with open(f"{p}/{f}", "r") as infile:
                     for line in infile:
-                        if line != "type,time,amount,target\n":
+                        if line != "type,time,timestamp,amount,target\n":
                             tmp = line.strip("\n")
                             # print(f"line = {tmp}\np={p}\nf={f.split('.')[0]}")
                             loc = p.split("/")
@@ -102,5 +102,5 @@ def dump(p: str, basefile) -> None:
 
 
 with open("dump.csv", "w") as f:
-    f.write("set,match,ship,type,time,amount,target\n")
+    f.write("set,match,ship,type,time,timestamp,amount,target\n")
     dump(".", f)

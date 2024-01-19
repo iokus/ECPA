@@ -4,17 +4,19 @@ import re
 from os import listdir, path, mkdir
 from argparse import ArgumentParser
 from evelyzer import analyze, summarize, dump
+from datetime import datetime
 
 
 class Entry:
-    def __init__(self, time: str, effect: float, target: str, role: str) -> None:
+    def __init__(self, time: str, effect: float, target: str, role: str, utc) -> None:
         self.time = time
         self.effect = effect
         self.target = target
         self.role = role
+        self.utc = utc
 
     def __str__(self) -> str:
-        return f"{self.role},{self.time},{self.effect},{self.target}"
+        return f"{self.role},{self.time},{self.utc},{self.effect},{self.target}"
 
 
 class Segment:
@@ -39,6 +41,30 @@ def getSegmentPos(segments: list, timestamp: str) -> int:
         if segments[i].contains(timestamp):
             return i
     return -1
+
+
+def timeToInt(time: str) -> int:
+    if time == "00":
+        return 0
+    return int(time.lstrip("0"))
+
+
+def extractTime(line: str):
+    date = line.split(" ")[1]
+    time = line.split(" ")[2]
+
+    try:
+        return datetime(
+            timeToInt(date.split(".")[0]),
+            timeToInt(date.split(".")[1]),
+            timeToInt(date.split(".")[2]),
+            timeToInt(time.split(":")[0]),
+            timeToInt(time.split(":")[1]),
+            timeToInt(time.split(":")[2]),
+        )
+    except:
+        print(line)
+        exit(1)
 
 
 def getSegment(segments: list, sign: str) -> Segment:
@@ -92,7 +118,15 @@ def readFile(fi: str, segments: list) -> list:
                         role = "dps-received"
                     else:
                         role = "dps-to"
-                    entries.append(Entry(line.split(" ")[2], effect, target, role))
+                    entries.append(
+                        Entry(
+                            line.split(" ")[2],
+                            effect,
+                            target,
+                            role,
+                            extractTime(line).timestamp(),
+                        )
+                    )
                 except Exception as e:
                     print(line + ":", end=" ")
                     print(e.args)
@@ -138,6 +172,7 @@ def readFile(fi: str, segments: list) -> list:
                         buffer[0].strip("><"),
                         buffer[1].strip("><"),
                         role,
+                        extractTime(line).timestamp(),
                     )
                 )
 
@@ -174,6 +209,7 @@ def readFile(fi: str, segments: list) -> list:
                         effect,
                         target,
                         role,
+                        extractTime(line).timestamp(),
                     )
                 )
 
@@ -193,6 +229,7 @@ def readFile(fi: str, segments: list) -> list:
                         effect,
                         target,
                         role,
+                        extractTime(line).timestamp(),
                     )
                 )
 
@@ -211,6 +248,7 @@ def readFile(fi: str, segments: list) -> list:
                         effect,
                         target,
                         role,
+                        extractTime(line).timestamp(),
                     )
                 )
 
@@ -221,6 +259,7 @@ def readFile(fi: str, segments: list) -> list:
                         "none",
                         "none",
                         "undock",
+                        extractTime(line).timestamp(),
                     )
                 )
 
@@ -315,7 +354,7 @@ for fi in listdir(args.dir):
                         )
                         break
 
-            out.write("type,time,amount,target\n")
+            out.write("type,time,timestamp,amount,target\n")
 
             for e in fileSegments[k]:
                 if e.role == "undock" and (timestampToInt(e.time) - lastUndock) > 120:
@@ -344,7 +383,7 @@ for fi in listdir(args.dir):
 
                                 break
 
-                    out.write("type,time,amount,target\n")
+                    out.write("type,time,timestamp,amount,target\n")
 
                 else:
                     out.write(str(e) + "\n")
@@ -359,6 +398,7 @@ base = open(f"{args.dir}/all.txt", "w")
 summarize(args.dir, base)
 base.close()
 
-base = open(f"{args.dir}/dump.txt", "w")
+base = open(f"{args.dir}/dump.csv", "w")
+base.write("set,match,ship,type,time,timestamp,amount,target\n")
 dump(args.dir, base)
 base.close()
