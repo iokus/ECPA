@@ -385,7 +385,7 @@ for fi in listdir(args.dir):
 
                     out.write("type,time,timestamp,amount,target\n")
 
-                else:
+                elif e.role != "undock":
                     out.write(str(e) + "\n")
 
             iteration += 1
