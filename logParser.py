@@ -164,17 +164,25 @@ def readFile(fi: str, segments: list) -> list:
                     role = "logi-to"
 
                 if len(buffer) < 2:
-                    continue
-
-                entries.append(
-                    Entry(
-                        line.split(" ")[2],
-                        buffer[0].strip("><"),
-                        buffer[1].strip("><"),
-                        role,
-                        extractTime(line).timestamp(),
+                    entries.append(
+                        Entry(
+                            line.split(" ")[2],
+                            buffer[0].strip("><"),
+                            "friendly",
+                            role,
+                            extractTime(line).timestamp(),
+                        )
                     )
-                )
+                else:
+                    entries.append(
+                        Entry(
+                            line.split(" ")[2],
+                            buffer[0].strip("><"),
+                            buffer[1].strip("><"),
+                            role,
+                            extractTime(line).timestamp(),
+                        )
+                    )
 
             if ("combat" in line) and (
                 "energy neutralized" in line
@@ -336,23 +344,27 @@ for fi in listdir(args.dir):
             lastUndock = timestampToInt(fileSegments[k][0].time)
             match = 1
 
-            if not path.isfile(
-                f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv"
-            ):
-                out = open(
-                    f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv",
-                    "w",
-                )
-            else:
-                for i in range(2, 5):
-                    if not path.isfile(
-                        f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
-                    ):
-                        out = open(
-                            f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
-                            "w",
-                        )
-                        break
+            try:
+                if not path.isfile(
+                    f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv"
+                ):
+                    out = open(
+                        f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}.csv",
+                        "w",
+                    )
+                else:
+                    for i in range(2, 5):
+                        if not path.isfile(
+                            f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv"
+                        ):
+                            out = open(
+                                f"{args.dir}/{k}/match-{match}/{fi.split('.')[0].split('-')[iteration]}-{i}.csv",
+                                "w",
+                            )
+                            break
+            except:
+                print(f"iteration is {iteration}")
+                exit(1)
 
             out.write("type,time,timestamp,amount,target\n")
 
